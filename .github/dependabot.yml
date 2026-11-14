@@ -7,6 +7,12 @@ updates:
     groups:
       dependencies:
         patterns: ["*"]
+    ignore:
+      # typescript-eslint@8.72.x exige typescript <6.1.0 : une majeure
+      # de typescript casse npm ci (ERESOLVE) tant que la peer range
+      # n'est pas élargie en amont.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule:

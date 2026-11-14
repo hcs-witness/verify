@@ -25,8 +25,8 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm run test
       - run: npm run build
+      - run: npm run test
       - name: tag matches package version
         run: |
           tag="${GITHUB_REF_NAME#v}"
