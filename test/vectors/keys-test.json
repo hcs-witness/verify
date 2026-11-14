@@ -1,0 +1,25 @@
+{
+  "_comment": "TEST ONLY - never use in production",
+  "keys": [
+    {
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "o4M_I4cKxUjtGElnlk2d3sxYEhiblQVvvhgh0GrxSAk",
+      "y": "YglJFfH6CG0kYtx5z0njZUtNQJTZoUK2fCoXDdntkv8",
+      "alg": "ES256",
+      "use": "sig",
+      "kid": "CpqFeV8LU19v-FearCCmr-4Ws12WQtv5_AKCFXKnJ8Q",
+      "status": "active",
+      "not_before": "2020-01-01T00:00:00Z"
+    },
+    {
+      "kty": "AKP",
+      "alg": "ML-DSA-65",
+      "pub": "IPKAX4BAYzOSiJiN_l_aGyxXLk7CSiKGZsXN6QsjDzoSM8WxK_VuulFNlEATTwyV6HDBb4QXcSZbkEZ6kOZaLdp6vViwHQ_joGOtEzTNi1VJpGJNBjJnNo598_0HaH9ixIBMhpoqb75Ct2tcApYymmnqibSDWErvWZfSvtRp9XhHr5bgQKjyWnqXUbdQT3stgJd6OCqwGC2JZ3QGQEUZl47HY2FmMjbaxEJgA1AX22tZxgppWEy663qrpqVQpOEgDnNSXtD-FtiNgO-w_xZxHftuUmNeOI4Ur6BcLZ7FBOjMB_dI1AzPnjqbkgNu5LavJZhBOTg6H_5DqJTOKu0rY2l7QChB_JJcP5y7Gr4v268DZ-ocwJWoChRTjLwvkmRDC7L6WKJmkuxWq_FBJlUYkOsoRj55be6r0jLnTuEBZVKJnpqNQ-Ph-R3vkMNKPRf-8O-OtdezqELdFqbzVIC7hAUvk5Qyxo8MH48a-DCysNTZ9irrYnm49ux1w6Asf6Tr16UZDBnX_AM9eaLpm371Q06Irfcz4aeY0wx86SdwH3yQeC3iWGqv1YBzoMNcc8priH2qDFSpClrCAEKva6yhK1xk_WAx_gSA1N6RxjsguVWzX9s5jhIppOV9J2A0q2V57krDQzbB4Qeqq1LW6-IlxbBSDEwwK4QIubZ-Lw6-gk91DtH-j0vGl3aU4QhWcY55X2Q7lgmmlha7jHy-vMGuxS00W-27ikJTJtiJwdGPHPq6B_5B5ZROLOmZdmv6eYyOd0JouO3Tx5u_y9hk6Ip_FXYFbWwFN5EvBNPlUrAcS64iFJoZkcsqXFMPDWFihcLSRP3RY0LTMSuYEXnnh13UNhB96b6R-HjmGnXYJq1e4XS4Cf69W02LYLpNemiJJBMshlKl70gK2JJR4jpR6YR995YX0mdPq925sXpmnw51I3-6jxob9ktpkzwEVOhUdTFcRtiDQ0Fcl0qwnjQdhcryI6MlOo-JvCswtGlMmpum3ITOG4rSk966RYNQWhSkzEDv8FtDpEVIg-FUT6AqtZulTkN_SJPpLS8tO4lfJLZ9xzhXQOTnt3RBCt3Lmr8O3obxhP0QjgBg0At_2XhgIeAcuOWLl3vZyeDuzGL1wJ3UmQflBzF1DqKkbOo8ItajGsiMZ8R_ZI5-ZeqyPUpNfJoB2Q-M55-coKDI6VL8sItJHY0KD5y57ZBc3pkO4bpP8XD8ro12_yTGJmEorKqkm1MHuxMmlpwy5HXZuz8kd_1BNkq8WmroqqA9mwUxYKp9fge8K-Ktqw-5Zmrz-Qjp_n0pq-2HCf-MZk45DrKBUwmeSxq1SqR7WgPXZp-5AcL8o6EAdBigrjhEYmksjmcNOVMVdDBQsirI8cuYWWBbDo6iqGgEPr83HnJFmSz7qp1jndRCYjw1_oEwoZ2AxJUSBtSb3Pprv3goStfLLk3X6gFIreahczHgLXi7u_0vreLlIvgZbAhAKsh-Q6DfYTDDryNgx9qfXSfVr-ig08EDxOBN93y9KUD5OsQUC8UfT9i1YhvPYuHvVo56PusIE0V5uI8PH9oLmfh0DMmSdKRaECNz_uqugZtgS1hIHZRcGey8pUYLjn8yZEsX5Ac8rgS3ZSShSUVPS7PqmY7UIfWSmVD0wjZDdUZPo-kk0HWiau0jHC1UJllHmOMxoyniwQ6_rs-Pxx1M2oFE15C4v_0GRoVuX4mkAuA_Y_Ok50ysqVdaFZIy8veHo_siC-4CJ9eoyKp_4BsChIiiqOVLbqS2C0TYuh-aKGR12jYr8TFWo3hWrlyxgt43i1maqqbqcZXe6D--X-DpmR6eUAHCVZd4g2tK-3uiZGlV5M8E_J4__KUt1Qawp5YZSyWsaJOUPqtQzRoRmrdxNykRv5w3nUMEgdaMO2u6SQzOd9Ea5TtOFiU81UNS-P2tvKnpg24RMr2QXFPY7XgCUJDEVrk4-N6ERR9Od0XalHi25e7vGpOz3nyXyxUvDQPZPsaebH3d2WR8WQU627B-b8XYE8zWT5f5PvuoSpVHSymGhK0mw0HRY6nTwdkboEIDhi9bJYFYv9J0yN3CBcsfiyL7dIaN0Qw62HXXHDUFjAYk_r-wut3UUD1HhMYxmlFrN1-MHNYrBXivTNZFM-cM_d3DKzPWq4mfv3G-v_quAK88zrY_5MYOkFvKBc6pCulskVoRFljMWm3cgye74ApEQ62d5IrVa7OIcN7VMzA8fxUjaZEndKop3plHFCa6bnObXgGr5wVyN0Asf3x1rsoWgDnZ8DofpNkUBD5G1csxwGhClj3LlFS4XuxWn0D6n7lD0w7dYbsq7e6To9jMKlPKWO5Uxz6D6J5cRW-kFVP2icevuGA7Ge6cGFguTk9J6utGewGgIXmKsXwc5pf1Zogq_hQWScurwAFTr_dIBIOjalxsTo9xByAFFWZUx8aI0ZldMqB1luKGDZWRKoT5O2NWcwJK9Ra63Fz86IRhHMrqUUmTWr_WYYUDDlssL8cs5ofLZitFuK1WApoTVn2D25bWC3l2eNcvLeFcdByQf5haKyFgKHz4N-znDbUAL82wSxaMUcq3suGxcIqj_eh1N-YjhDtKwWIJNM4bTofJqJ8",
+      "use": "sig",
+      "kid": "UitbN3AvQUeoTLk1rmPWChtXhYkPp3seTnDzjwG04Bs",
+      "status": "active",
+      "not_before": "2020-01-01T00:00:00Z"
+    }
+  ]
+}

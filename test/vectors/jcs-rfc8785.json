@@ -1,0 +1,76 @@
+{
+  "_comment": "TEST ONLY - never use in production",
+  "_source": "https://www.rfc-editor.org/rfc/rfc8785 (§3.2.2 sample + annex test data)",
+  "cases": [
+    {
+      "name": "rfc8785-3.2.2",
+      "input": {
+        "numbers": [333333333.3333333, 1e30, 4.5, 0.002, 1e-27],
+        "string": "€$\u000f\nA'B\"\\/",
+        "literals": [null, true, false]
+      },
+      "expected": "{\"literals\":[null,true,false],\"numbers\":[333333333.3333333,1e+30,4.5,0.002,1e-27],\"string\":\"€$\\u000f\\nA'B\\\"\\\\/\"}"
+    },
+    {
+      "name": "key-ordering-utf16",
+      "input": {
+        "a": 1,
+        "A": 2,
+        "aa": 3,
+        "aA": 4
+      },
+      "expected": "{\"A\":2,\"a\":1,\"aA\":4,\"aa\":3}"
+    },
+    {
+      "name": "empty-structures",
+      "input": {
+        "b": {},
+        "a": []
+      },
+      "expected": "{\"a\":[],\"b\":{}}"
+    },
+    {
+      "name": "escapes",
+      "input": ["\\", "\"", "\n", "\u0001", "\u001f"],
+      "expected": "[\"\\\\\",\"\\\"\",\"\\n\",\"\\u0001\",\"\\u001f\"]"
+    },
+    {
+      "name": "unicode-nonascii",
+      "input": {
+        "e": "é",
+        "emoji": "🦊",
+        "sep": " "
+      },
+      "expected": "{\"e\":\"é\",\"emoji\":\"🦊\",\"sep\":\" \"}"
+    },
+    {
+      "name": "number-format-1e21",
+      "input": [1e21],
+      "expected": "[1e+21]"
+    },
+    {
+      "name": "number-format-01",
+      "input": [0.1],
+      "expected": "[0.1]"
+    },
+    {
+      "name": "number-negative-zero",
+      "input": [0],
+      "expected": "[0]"
+    },
+    {
+      "name": "deep-nesting",
+      "input": {
+        "z": {
+          "y": [
+            {
+              "x": true
+            }
+          ]
+        },
+        "a": 0
+      },
+      "expected": "{\"a\":0,\"z\":{\"y\":[{\"x\":true}]}}"
+    }
+  ]
+}

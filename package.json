@@ -1,0 +1,73 @@
+{
+  "name": "@hcs-witness/verify",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Offline verification library and CLI for HCS Witness proofs. Zero network access.",
+  "license": "Apache-2.0",
+  "author": "AI Solution",
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "hcs-witness-verify": "bin/hcs-witness-verify.mjs"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hcs-witness/verify.git"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "keywords": [
+    "hcs-witness",
+    "proof",
+    "verification",
+    "offline",
+    "es256",
+    "ml-dsa-65",
+    "opentimestamps",
+    "merkle"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
+    "test": "vitest run",
+    "test:cov": "vitest run --coverage",
+    "format:check": "prettier --check .",
+    "format": "prettier --write .",
+    "lint": "eslint . --max-warnings 0",
+    "knip": "knip"
+  },
+  "dependencies": {
+    "@noble/post-quantum": "0.7.1",
+    "canonicalize": "5.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "@vitest/coverage-v8": "5.1.0",
+    "eslint": "9.39.5",
+    "typescript-eslint": "8.72.1",
+    "fast-check": "4.10.2",
+    "knip": "6.44.1",
+    "prettier": "3.9.10",
+    "typescript": "6.0.3",
+    "vitest": "5.1.0"
+  }
+}
