@@ -42,7 +42,10 @@ controls }` (contrôles énumérés, sans doublon).
   `AssuranceControl`, `HumanFactorV3`.
 - Évaluateur de schéma interne : support de `uniqueItems`.
 
-- Cohérence interne v3, après le schéma et avant les signatures :
+- Cohérence interne v3 — ordre des contrôles : schéma → keyset/pin →
+  signatures → cohérence → liaison. Une signature invalide rapporte son
+  code seul, jamais `ASSURANCE_INCONSISTENT` (le contenu d'une preuve
+  non authentifiée n'est pas analysé).
   erreur dédiée `ASSURANCE_INCONSISTENT` + motif précis dans
   `VerifyResult.reasons` et dans la sortie CLI (`reasons:`) —
   `enrollment_confirmed` listé alors que `confirmed_at` est null,

@@ -108,36 +108,6 @@ export function verifyProof(
     }
   }
 
-  // Cohérence interne v3 : entre le schéma et les signatures, les
-  // déclarations d'assurance doivent refléter l'historique d'enrôlement.
-  if (p.v === 3) {
-    const hf = p.human_factor;
-    const controls = p.assurance.controls;
-    if (controls.includes("enrollment_confirmed") && hf.confirmed_at === null) {
-      reasons.push("enrollment_confirmed_but_confirmed_at_null");
-    }
-    if (
-      controls.includes("enrollment_code_verified") &&
-      !hf.enrollment_code_verified
-    ) {
-      reasons.push("enrollment_code_verified_but_flag_false");
-    }
-    if (hf.confirmed_at !== null) {
-      const enrolled = parseTime(hf.enrolled_at);
-      const confirmed = parseTime(hf.confirmed_at);
-      if (
-        !Number.isNaN(enrolled) &&
-        !Number.isNaN(confirmed) &&
-        confirmed < enrolled
-      ) {
-        reasons.push("confirmed_at_before_enrolled_at");
-      }
-    }
-    if (reasons.length > 0) {
-      errors.push("ASSURANCE_INCONSISTENT");
-    }
-  }
-
   if (!isKeyset(keyset)) {
     errors.push("KEYSET_INVALID");
     return { ...done(), proof_id: p.proof_id };
@@ -151,6 +121,7 @@ export function verifyProof(
     errors.push("KEYSET_PIN_MISMATCH");
   }
 
+  const authErrorsStart = errors.length;
   const esKey = ks.keys.find(
     (k): k is Es256KeysetKey => k.alg === "ES256" && k.kid === p.sig.es256.kid,
   );
@@ -232,6 +203,37 @@ export function verifyProof(
         ok = false;
       }
       if (!ok) errors.push("MLDSA_SIG_INVALID");
+    }
+  }
+
+  // Cohérence interne v3, après les signatures : on n'analyse le
+  // contenu d'une preuve qu'authentifiée — toute erreur de
+  // keyset/kid/signature empêche le rapport d'incohérence.
+  if (p.v === 3 && errors.length === authErrorsStart) {
+    const hf = p.human_factor;
+    const controls = p.assurance.controls;
+    if (controls.includes("enrollment_confirmed") && hf.confirmed_at === null) {
+      reasons.push("enrollment_confirmed_but_confirmed_at_null");
+    }
+    if (
+      controls.includes("enrollment_code_verified") &&
+      !hf.enrollment_code_verified
+    ) {
+      reasons.push("enrollment_code_verified_but_flag_false");
+    }
+    if (hf.confirmed_at !== null) {
+      const enrolled = parseTime(hf.enrolled_at);
+      const confirmed = parseTime(hf.confirmed_at);
+      if (
+        !Number.isNaN(enrolled) &&
+        !Number.isNaN(confirmed) &&
+        confirmed < enrolled
+      ) {
+        reasons.push("confirmed_at_before_enrolled_at");
+      }
+    }
+    if (reasons.length > 0) {
+      errors.push("ASSURANCE_INCONSISTENT");
     }
   }
 

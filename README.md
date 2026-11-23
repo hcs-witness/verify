@@ -143,9 +143,11 @@ confirmation.
   rejected with `UNSUPPORTED_VERSION`. `proofV1Schema`/`proofV2Schema`
   are byte-for-byte identical to the schemas emitted proofs were
   validated against (full non-regression).
-- v3 internal coherence is checked after schema validation and before
-  signatures, with `ASSURANCE_INCONSISTENT` plus a precise reason in
-  `VerifyResult.reasons`:
+- v3 internal coherence is checked **after** schema validation,
+  keyset/pin and signature verification — in that order — with
+  `ASSURANCE_INCONSISTENT` plus a precise reason in
+  `VerifyResult.reasons` (an unauthenticated proof's contents are never
+  analyzed: an invalid signature reports its signature code only):
   - `enrollment_confirmed_but_confirmed_at_null` — `controls` lists
     `enrollment_confirmed` while `human_factor.confirmed_at` is null;
   - `enrollment_code_verified_but_flag_false` — `controls` lists

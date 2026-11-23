@@ -405,14 +405,21 @@ describe("verifyProof — v3 assurance coherence", () => {
     expect(r.reasons).toBeUndefined();
   });
 
-  it("mutated v3 vector still reports the inconsistency", () => {
+  it("inconsistent AND invalid signature → signature code, no reasons", () => {
+    // Le champ muté casse la signature ET introduit l'incohérence :
+    // l'ordre schéma → keyset/pin → signatures → cohérence fait qu'une
+    // signature invalide masque toujours l'incohérence — on n'analyse
+    // pas le contenu d'une preuve non authentifiée.
     const mutated = {
       ...v3Proof,
       human_factor: { ...v3Proof.human_factor, confirmed_at: null },
     };
     const r = verifyProof(mutated, v3Keyset);
-    expect(r.errors).toContain("ASSURANCE_INCONSISTENT");
-    expect(r.reasons).toContain("enrollment_confirmed_but_confirmed_at_null");
+    expect(r.errors).toEqual(
+      expect.arrayContaining(["ES256_SIG_INVALID", "MLDSA_SIG_INVALID"]),
+    );
+    expect(r.errors).not.toContain("ASSURANCE_INCONSISTENT");
+    expect(r.reasons).toBeUndefined();
   });
 
   it("v1 and v2 proofs are not affected", () => {
