@@ -2,34 +2,61 @@
 import { readFileSync } from "node:fs";
 
 import { verifyAnchor } from "./anchor.js";
-import { verifyProof, type VerifyResult } from "./verify.js";
+import { checkActionBinding } from "./binding.js";
+import {
+  verifyProof,
+  type VerifyOptions,
+  type VerifyResult,
+} from "./verify.js";
 
 const USAGE =
-  "Usage: hcs-witness-verify <proof.json> --keys <keys.json> [--now <rfc3339>] [--json]";
+  "Usage: hcs-witness-verify <proof.json> --keys <keys.json> [--now <rfc3339>] " +
+  "[--expected-keyset-sha256 <hex>] " +
+  "[--action <text> --context <context.json> --display <text>] [--json]";
 
-function parseArgs(args: string[]): {
+interface CliArgs {
   proof: string;
   keys: string;
   now?: Date;
+  expectedKeysetSha256?: string;
+  action?: string;
+  context?: string;
+  display?: string;
   json: boolean;
-} {
+}
+
+function parseArgs(args: string[]): CliArgs {
+  const out: CliArgs = { proof: "", keys: "", json: false };
   let proof: string | undefined;
-  let keys: string | undefined;
-  let now: Date | undefined;
-  let json = false;
+  const next = (i: number, flag: string): string => {
+    const v = args.at(i + 1);
+    if (v === undefined) throw new Error(`missing value for ${flag}`);
+    return v;
+  };
   for (let i = 0; i < args.length; i += 1) {
     const a = args.at(i);
     if (a === "--keys") {
-      keys = args.at(i + 1);
+      out.keys = next(i, a);
       i += 1;
     } else if (a === "--now") {
-      const raw = args.at(i + 1) ?? "";
-      const t = Date.parse(raw);
+      const t = Date.parse(next(i, a));
       if (Number.isNaN(t)) throw new Error("invalid --now value");
-      now = new Date(t);
+      out.now = new Date(t);
+      i += 1;
+    } else if (a === "--expected-keyset-sha256") {
+      out.expectedKeysetSha256 = next(i, a);
+      i += 1;
+    } else if (a === "--action") {
+      out.action = next(i, a);
+      i += 1;
+    } else if (a === "--context") {
+      out.context = next(i, a);
+      i += 1;
+    } else if (a === "--display") {
+      out.display = next(i, a);
       i += 1;
     } else if (a === "--json") {
-      json = true;
+      out.json = true;
     } else if (a?.startsWith("-")) {
       throw new Error(`unknown option: ${a}`);
     } else if (proof === undefined) {
@@ -38,15 +65,19 @@ function parseArgs(args: string[]): {
       throw new Error("unexpected extra argument");
     }
   }
-  if (proof === undefined || keys === undefined) {
+  if (proof === undefined || out.keys === "") {
     throw new Error("missing arguments");
   }
-  const out: { proof: string; keys: string; json: boolean; now?: Date } = {
-    proof,
-    keys,
-    json,
-  };
-  if (now !== undefined) out.now = now;
+  out.proof = proof;
+  const bindingCount =
+    Number(out.action !== undefined) +
+    Number(out.context !== undefined) +
+    Number(out.display !== undefined);
+  if (bindingCount !== 0 && bindingCount !== 3) {
+    throw new Error(
+      "--action, --context and --display must be given together or not at all",
+    );
+  }
   return out;
 }
 
@@ -58,13 +89,28 @@ try {
   const opts = parseArgs(process.argv.slice(2));
   const proof = loadJson(opts.proof);
   const keys = loadJson(opts.keys);
-  const result: VerifyResult = verifyProof(
-    proof,
-    keys,
-    opts.now === undefined ? undefined : { now: opts.now },
-  );
+  const verifyOpts: VerifyOptions = {
+    ...(opts.now === undefined ? {} : { now: opts.now }),
+    ...(opts.expectedKeysetSha256 === undefined
+      ? {}
+      : { expectedKeysetSha256: opts.expectedKeysetSha256 }),
+  };
+  const result: VerifyResult = verifyProof(proof, keys, verifyOpts);
+
+  // Liaison preuve/action : les trois options ou aucune (vérifié par
+  // parseArgs). Le contexte est lu depuis un fichier JSON.
+  const binding =
+    opts.action === undefined
+      ? undefined
+      : checkActionBinding(proof, {
+          action: opts.action,
+          context: loadJson(opts.context ?? "") as Record<string, unknown>,
+          displayText: opts.display ?? "",
+        });
+
   if (opts.json) {
-    process.stdout.write(`${JSON.stringify(result)}\n`);
+    const payload = binding === undefined ? result : { ...result, binding };
+    process.stdout.write(`${JSON.stringify(payload)}\n`);
   } else {
     const expired = result.errors.includes("PROOF_EXPIRED");
     const authErrors = result.errors.filter((e) => e !== "PROOF_EXPIRED");
@@ -119,7 +165,14 @@ try {
       );
     }
   }
-  process.exit(result.valid ? 0 : 1);
+  if (binding !== undefined && !opts.json) {
+    process.stdout.write(
+      binding.valid
+        ? "binding: OK\n"
+        : `binding: MISMATCH (${binding.errors.join(", ")})\n`,
+    );
+  }
+  process.exit(result.valid && (binding?.valid ?? true) ? 0 : 1);
 } catch (error) {
   process.stdout.write(
     `${error instanceof Error ? error.message : String(error)}\n${USAGE}\n`,

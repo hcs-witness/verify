@@ -24,15 +24,29 @@ Requires Node.js **≥ 22** — no Node-24-only API is used at runtime
 ## Verify a proof (CLI)
 
 ```bash
-hcs-witness-verify <proof.json> --keys <keys.json> [--now <rfc3339>] [--json]
+hcs-witness-verify <proof.json> --keys <keys.json> [--now <rfc3339>]
+                   [--expected-keyset-sha256 <hex>]
+                   [--action <text> --context <context.json> --display <text>]
+                   [--json]
 ```
 
 - `<proof.json>`: a proof document (`proofs/<proof_id>.json` in an audit
-  export, or `GET /v1/proofs/<id>` output).
+  export, or `GET /v1/proofs/<id>` output). Proof versions v1, v2 and v3
+  are accepted.
 - `--keys`: the public keyset (`keys.json` in an export, or
   `/.well-known/hcs-keys.json` on the issuing service).
 - `--now`: reference time for expiry checks (default: none).
-- Exit code: `0` valid, `1` invalid, `2` usage error.
+- `--expected-keyset-sha256 <hex>`: pin the keyset — SHA-256 of its
+  canonical JCS form, i.e. the value of the `ETag` served with
+  `/.well-known/hcs-keys.json`. Obtain it out of band; a mismatch makes
+  the proof `INVALID` with `KEYSET_PIN_MISMATCH`.
+- `--action`, `--context`, `--display`: action binding check — must be
+  given all three together or not at all. `--context` points to a JSON
+  file with the same object sent with the approval request, `--display`
+  is the exact text shown to the human. The check runs
+  `checkActionBinding`; any `*_MISMATCH` makes the run invalid.
+- Exit code: `0` — proof valid and binding (when requested) OK;
+  `1` — proof invalid or binding mismatch; `2` — usage or I/O error.
 
 ```console
 $ hcs-witness-verify proofs/ggp_01JZ….json --keys keys.json
