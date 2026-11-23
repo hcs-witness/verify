@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import fc from "fast-check";
 
-import { verifyProof, type UnsignedProof } from "../src/index.js";
+import { keysetSha256, verifyProof, type UnsignedProof } from "../src/index.js";
 import { makeTestSigners, signTestProof } from "./helpers/signer.js";
 
 // Fingerprint of the committed reference vector — regeneration is forbidden.
@@ -136,8 +136,8 @@ describe("verifyProof — reference vector", () => {
     expect(verifyProof(p, keyset).errors).toContain("SCHEMA_INVALID");
   });
 
-  it("rejects v outside {1, 2}", () => {
-    expect(verifyProof({ ...proof, v: 3 }, keyset).errors).toContain(
+  it("rejects v outside {1, 2, 3}", () => {
+    expect(verifyProof({ ...proof, v: 4 }, keyset).errors).toContain(
       "UNSUPPORTED_VERSION",
     );
     expect(verifyProof({ ...proof, v: 0 }, keyset).errors).toContain(
@@ -245,5 +245,192 @@ describe("verifyProof — presence block (étape 5)", () => {
     expect(proof.v).toBe(1);
     const r = verifyProof(proof, keyset);
     expect(r).toMatchObject({ valid: true, errors: [] });
+  });
+});
+
+describe("keysetSha256 — keyset pinning", () => {
+  it("stable sha256 of the canonical JCS keyset (ETag vector)", () => {
+    // Même calcul que l'ETag de /.well-known/hcs-witness-keys.json :
+    // sha256(JCS(keyset)). Vecteur commun avec gateguard-platform.
+    expect(keysetSha256(keyset)).toBe(
+      "46436272806d3c0e9ef7b99a42fe4ca57301f898f483d24e9220bff4aa807551",
+    );
+  });
+
+  it("changes when any key material changes", () => {
+    const other = JSON.parse(JSON.stringify(keyset)) as {
+      keys: { kid: string }[];
+    };
+    other.keys[0]!.kid = "other-kid";
+    expect(keysetSha256(other)).not.toBe(keysetSha256(keyset));
+  });
+
+  it("accepts the proof when the pin matches", () => {
+    const r = verifyProof(proof, keyset, {
+      expectedKeysetSha256: keysetSha256(keyset),
+    });
+    expect(r.valid).toBe(true);
+  });
+
+  it("rejects with KEYSET_PIN_MISMATCH when the pin differs", () => {
+    const r = verifyProof(proof, keyset, {
+      expectedKeysetSha256: "0".repeat(64),
+    });
+    expect(r.valid).toBe(false);
+    expect(r.errors).toContain("KEYSET_PIN_MISMATCH");
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* V1.4 : vecteur fixe v3 — mutation de chaque champ ajouté            */
+/* ------------------------------------------------------------------ */
+
+const rawV3Proof = readFileSync("test/vectors/proof-v3-valid.json", "utf8");
+const rawV3Keys = readFileSync("test/vectors/keys-v3-test.json", "utf8");
+const v3Proof = JSON.parse(rawV3Proof) as {
+  human_factor: Record<string, unknown>;
+  assurance: { level: string; controls: string[] };
+} & Record<string, unknown>;
+const v3Keyset = JSON.parse(rawV3Keys) as Record<string, unknown>;
+
+describe("verifyProof — vecteur v3", () => {
+  it("accepts the fixed signed v3 vector", () => {
+    expect(verifyProof(v3Proof, v3Keyset)).toMatchObject({
+      valid: true,
+      errors: [],
+    });
+  });
+
+  it.each([
+    "enrolled_at",
+    "confirmed_at",
+    "invited_by_ref",
+    "confirmed_by_ref",
+    "self_confirmed",
+    "enrollment_code_verified",
+  ])("fails when human_factor.%s is mutated", (field) => {
+    const mutated = {
+      ...v3Proof,
+      human_factor: {
+        ...v3Proof.human_factor,
+        [field]:
+          field === "enrolled_at" || field === "confirmed_at"
+            ? "2026-01-01T00:00:00Z"
+            : typeof v3Proof.human_factor[field] === "boolean"
+              ? !v3Proof.human_factor[field]
+              : "other-ref",
+      },
+    };
+    expect(verifyProof(mutated, v3Keyset).valid).toBe(false);
+  });
+
+  it("fails when assurance.level is mutated", () => {
+    const mutated = {
+      ...v3Proof,
+      assurance: { ...v3Proof.assurance, level: "N1" },
+    };
+    expect(verifyProof(mutated, v3Keyset).valid).toBe(false);
+  });
+
+  it("fails when assurance.controls is mutated", () => {
+    const mutated = {
+      ...v3Proof,
+      assurance: {
+        ...v3Proof.assurance,
+        controls: v3Proof.assurance.controls.filter(
+          (c) => c !== "presence_measured",
+        ),
+      },
+    };
+    expect(verifyProof(mutated, v3Keyset).valid).toBe(false);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* V1.6 : cohérence interne des preuves v3 (ASSURANCE_INCONSISTENT)    */
+/* ------------------------------------------------------------------ */
+
+describe("verifyProof — v3 assurance coherence", () => {
+  const v3Signers = makeTestSigners();
+  const v3Keys = v3Signers.keyset();
+
+  const v3Unsigned = (over: Record<string, unknown>): UnsignedProof => {
+    const base = JSON.parse(rawV3Proof) as Record<string, unknown>;
+    delete base.sig;
+    delete base.anchor;
+    return { ...base, ...over } as unknown as UnsignedProof;
+  };
+
+  it("controls enrollment_confirmed + confirmed_at null → motif", () => {
+    const hf = {
+      ...v3Proof.human_factor,
+      confirmed_at: null,
+    };
+    const signed = signTestProof(v3Unsigned({ human_factor: hf }), v3Signers);
+    const r = verifyProof(signed, v3Keys);
+    expect(r.valid).toBe(false);
+    expect(r.errors).toContain("ASSURANCE_INCONSISTENT");
+    expect(r.reasons).toContain("enrollment_confirmed_but_confirmed_at_null");
+  });
+
+  it("controls enrollment_code_verified + flag false → motif", () => {
+    const hf = {
+      ...v3Proof.human_factor,
+      enrollment_code_verified: false,
+    };
+    const signed = signTestProof(v3Unsigned({ human_factor: hf }), v3Signers);
+    const r = verifyProof(signed, v3Keys);
+    expect(r.valid).toBe(false);
+    expect(r.errors).toContain("ASSURANCE_INCONSISTENT");
+    expect(r.reasons).toContain("enrollment_code_verified_but_flag_false");
+  });
+
+  it("confirmed_at before enrolled_at → motif", () => {
+    const hf = {
+      ...v3Proof.human_factor,
+      enrolled_at: "2026-03-01T00:00:00Z",
+      confirmed_at: "2026-02-01T00:00:00Z",
+    };
+    const signed = signTestProof(v3Unsigned({ human_factor: hf }), v3Signers);
+    const r = verifyProof(signed, v3Keys);
+    expect(r.valid).toBe(false);
+    expect(r.errors).toContain("ASSURANCE_INCONSISTENT");
+    expect(r.reasons).toContain("confirmed_at_before_enrolled_at");
+  });
+
+  it("coherent re-signed v3 proof stays valid (no reasons)", () => {
+    const signed = signTestProof(v3Unsigned({}), v3Signers);
+    const r = verifyProof(signed, v3Keys);
+    expect(r.valid).toBe(true);
+    expect(r.reasons).toBeUndefined();
+  });
+
+  it("inconsistent AND invalid signature → signature code, no reasons", () => {
+    // Le champ muté casse la signature ET introduit l'incohérence :
+    // l'ordre schéma → keyset/pin → signatures → cohérence fait qu'une
+    // signature invalide masque toujours l'incohérence — on n'analyse
+    // pas le contenu d'une preuve non authentifiée.
+    const mutated = {
+      ...v3Proof,
+      human_factor: { ...v3Proof.human_factor, confirmed_at: null },
+    };
+    const r = verifyProof(mutated, v3Keyset);
+    expect(r.errors).toEqual(
+      expect.arrayContaining(["ES256_SIG_INVALID", "MLDSA_SIG_INVALID"]),
+    );
+    expect(r.errors).not.toContain("ASSURANCE_INCONSISTENT");
+    expect(r.reasons).toBeUndefined();
+  });
+
+  it("v1 and v2 proofs are not affected", () => {
+    const r1 = verifyProof(proof, keyset);
+    expect(r1.valid).toBe(true);
+    expect(r1.reasons).toBeUndefined();
+    const r2 = verifyProof(
+      JSON.parse(readFileSync("test/vectors/proof-v2-anchored.json", "utf8")),
+      JSON.parse(readFileSync("test/vectors/keys-local.json", "utf8")),
+    );
+    expect(r2.valid).toBe(true);
+    expect(r2.reasons).toBeUndefined();
   });
 });

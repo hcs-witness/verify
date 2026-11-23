@@ -1,4 +1,6 @@
 import { checkSchema, type JsonSchema } from "./check.js";
+import { sha256 } from "./hash.js";
+import { canonicalBytes } from "./jcs.js";
 
 const b64url: JsonSchema = { type: "string", pattern: "^[A-Za-z0-9_-]+$" };
 const rfc3339Utc: JsonSchema = {
@@ -93,4 +95,18 @@ export interface Keyset {
 
 export function isKeyset(value: unknown): value is Keyset {
   return checkSchema(keysetSchema, value);
+}
+
+function hex(bytes: Uint8Array): string {
+  return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Empreinte SHA-256 du jeu de clés sous sa forme canonique JCS — la
+ * valeur exacte de l'ETag servi par /.well-known/hcs-witness-keys.json
+ * (même calcul côté émetteur). Publiée hors bande : le document du jeu
+ * de clés et son schéma restent inchangés.
+ */
+export function keysetSha256(keyset: unknown): string {
+  return hex(sha256(canonicalBytes(keyset)));
 }

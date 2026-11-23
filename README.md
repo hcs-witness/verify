@@ -24,15 +24,29 @@ Requires Node.js **≥ 22** — no Node-24-only API is used at runtime
 ## Verify a proof (CLI)
 
 ```bash
-hcs-witness-verify <proof.json> --keys <keys.json> [--now <rfc3339>] [--json]
+hcs-witness-verify <proof.json> --keys <keys.json> [--now <rfc3339>]
+                   [--expected-keyset-sha256 <hex>]
+                   [--action <text> --context <context.json> --display <text>]
+                   [--json]
 ```
 
 - `<proof.json>`: a proof document (`proofs/<proof_id>.json` in an audit
-  export, or `GET /v1/proofs/<id>` output).
+  export, or `GET /v1/proofs/<id>` output). Proof versions v1, v2 and v3
+  are accepted.
 - `--keys`: the public keyset (`keys.json` in an export, or
   `/.well-known/hcs-keys.json` on the issuing service).
 - `--now`: reference time for expiry checks (default: none).
-- Exit code: `0` valid, `1` invalid, `2` usage error.
+- `--expected-keyset-sha256 <hex>`: pin the keyset — SHA-256 of its
+  canonical JCS form, i.e. the value of the `ETag` served with
+  `/.well-known/hcs-keys.json`. Obtain it out of band; a mismatch makes
+  the proof `INVALID` with `KEYSET_PIN_MISMATCH`.
+- `--action`, `--context`, `--display`: action binding check — must be
+  given all three together or not at all. `--context` points to a JSON
+  file with the same object sent with the approval request, `--display`
+  is the exact text shown to the human. The check runs
+  `checkActionBinding`; any `*_MISMATCH` makes the run invalid.
+- Exit code: `0` — proof valid and binding (when requested) OK;
+  `1` — proof invalid or binding mismatch; `2` — usage or I/O error.
 
 ```console
 $ hcs-witness-verify proofs/ggp_01JZ….json --keys keys.json
@@ -72,6 +86,23 @@ The exported JSON Schemas (`proofSchema`, `unsignedProofSchema`,
 validator (e.g. ajv) — and `isProof` / `isUnsignedProof` / `isKeyset`
 are dependency-free type guards.
 
+## Publishing a release
+
+The real publication process (described, not run from a working copy):
+
+1. The maintainer signs an annotated tag `v<version>` exactly matching
+   `package.json` `version` and pushes it.
+2. `.github/workflows/release.yml` triggers on the tag: `npm ci`,
+   `lint`, `typecheck`, `build`, `test`, then a guard step that fails
+   if the tag does not equal the package version.
+3. `npm publish --provenance` runs with **npm trusted publishing
+   (OIDC)** — the `id-token: write` permission mints a short-lived
+   OIDC token in the `npm-release` environment; no npm access token
+   exists anywhere.
+4. The published tarball carries a **Sigstore provenance** statement
+   linking it to the GitHub Actions run and commit; verifiable with
+   `npm audit signatures`.
+
 ## Verify the package provenance
 
 Every release is published from GitHub Actions via **npm trusted
@@ -103,9 +134,30 @@ confirmation.
 
 ## Proof format and compatibility
 
-- Format versions `v: 1` and `v: 2` (the `presence` block appeared in
-  v2) are supported. The package version is **independent** of the
-  proof-format version.
+- Format versions `v: 1`, `v: 2` and `v: 3` are supported. The
+  `presence` block appeared in v2; v3 adds a mandatory enrollment
+  history under `human_factor` and a mandatory `assurance` object
+  (`{ level: "N1" | "N2", controls }`). The package version is
+  **independent** of the proof-format version.
+- Schema selection is driven by the `v` field; an unknown version is
+  rejected with `UNSUPPORTED_VERSION`. `proofV1Schema`/`proofV2Schema`
+  are byte-for-byte identical to the schemas emitted proofs were
+  validated against (full non-regression).
+- v3 internal coherence is checked **after** schema validation,
+  keyset/pin and signature verification — in that order — with
+  `ASSURANCE_INCONSISTENT` plus a precise reason in
+  `VerifyResult.reasons` (an unauthenticated proof's contents are never
+  analyzed: an invalid signature reports its signature code only):
+  - `enrollment_confirmed_but_confirmed_at_null` — `controls` lists
+    `enrollment_confirmed` while `human_factor.confirmed_at` is null;
+  - `enrollment_code_verified_but_flag_false` — `controls` lists
+    `enrollment_code_verified` while
+    `human_factor.enrollment_code_verified` is false;
+  - `confirmed_at_before_enrolled_at` — `human_factor.confirmed_at`
+    predates `human_factor.enrolled_at`.
+- `assurance.level` (N1/N2) is **declared by the issuer**: the rule
+  mapping levels to controls is the issuer's and is not recomputed
+  here; the verifier only checks internal coherence (above).
 - A new verifier release always keeps verifying all previously
   published format versions; dropping a format version requires a
   major release announced ≥ 12 months in advance.
@@ -135,14 +187,27 @@ npm install --global @hcs-witness/verify
 hcs-witness-verify proofs/<proof_id>.json --keys keys.json
 ```
 
-- Codes de sortie : `0` valide, `1` invalide, `2` erreur d'usage.
+- Codes de sortie : `0` valide, `1` invalide ou liaison non conforme,
+  `2` erreur d'usage.
 - Provenance : `npm audit signatures` + badge de provenance sur la page
   npm ; publication par trusted publishing OIDC depuis GitHub Actions,
   sans aucun jeton.
 - Ancrage Bitcoin : `verifyAnchor` vérifie l'inclusion Merkle et lit le
   fichier `.ots` embarqué ; la confirmation du bloc se fait avec les
   outils publics OpenTimestamps (`ots verify anchors/<batch_id>.ots`).
-- Compatibilité : les formats `v:1` et `v:2` restent vérifiables ; le
-  contexte signé `gateguard:proof:v1` et la canonicalisation JCS sont
-  immuables.
+- Compatibilité : les formats `v:1`, `v:2` et `v:3` restent
+  vérifiables (v3 ajoute l'historique d'enrôlement et l'objet
+  `assurance`, tous deux obligatoires) ; le contexte signé
+  `gateguard:proof:v1` et la canonicalisation JCS sont immuables.
+- Cohérence v3 : `ASSURANCE_INCONSISTENT` + motif dans
+  `VerifyResult.reasons` (`reasons:` dans la sortie CLI) quand les
+  contrôles déclarés contredisent l'historique d'enrôlement, ou quand
+  `confirmed_at` précède `enrolled_at`.
+- Épinglage : `--expected-keyset-sha256 <hex>` refuse explicitement un
+  jeu de clés différent de celui épinglé hors bande (empreinte = ETag
+  de `/.well-known/hcs-witness-keys.json`).
+- Liaison : `--action` / `--context` / `--display` vérifient que la
+  preuve porte bien sur l'action, le contexte et le texte affiché —
+  codes de sortie `0` valide, `1` invalide ou liaison non conforme,
+  `2` erreur d'usage.
 - Sécurité : signalement à **contact@ia-solution.fr** (cf. SECURITY.md).
