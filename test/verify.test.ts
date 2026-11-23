@@ -136,8 +136,8 @@ describe("verifyProof — reference vector", () => {
     expect(verifyProof(p, keyset).errors).toContain("SCHEMA_INVALID");
   });
 
-  it("rejects v outside {1, 2}", () => {
-    expect(verifyProof({ ...proof, v: 3 }, keyset).errors).toContain(
+  it("rejects v outside {1, 2, 3}", () => {
+    expect(verifyProof({ ...proof, v: 4 }, keyset).errors).toContain(
       "UNSUPPORTED_VERSION",
     );
     expect(verifyProof({ ...proof, v: 0 }, keyset).errors).toContain(

@@ -71,7 +71,7 @@ export function verifyProof(
     return fail(["SCHEMA_INVALID"]);
   }
   const v = (proof as { v?: unknown }).v;
-  if (v !== 1 && v !== 2) {
+  if (v !== 1 && v !== 2 && v !== 3) {
     return fail(v === undefined ? ["SCHEMA_INVALID"] : ["UNSUPPORTED_VERSION"]);
   }
   if (!isProof(proof)) {

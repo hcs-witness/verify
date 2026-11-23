@@ -2,7 +2,7 @@
  * Évaluateur JSON Schema minimal : couvre exactement les constructions
  * des schémas exportés (type, const, anyOf, properties, required,
  * additionalProperties, patternProperties, items, pattern, minLength,
- * minimum). Ce n'est PAS un moteur JSON Schema général — les schémas
+ * minimum, uniqueItems). Ce n'est PAS un moteur JSON Schema général — les schémas
  * sont fixes et internes au format de preuve HCS Witness.
  */
 
@@ -15,6 +15,8 @@ export interface JsonSchema {
   readonly additionalProperties?: boolean;
   readonly patternProperties?: Record<string, JsonSchema>;
   readonly items?: JsonSchema;
+  /** Unicité des items — couvre les items primitifs (chaînes). */
+  readonly uniqueItems?: boolean;
   readonly pattern?: string;
   readonly minLength?: number;
   readonly minimum?: number;
@@ -85,6 +87,9 @@ export function checkSchema(schema: JsonSchema, value: unknown): boolean {
       items !== undefined &&
       !value.every((item) => checkSchema(items, item))
     ) {
+      return false;
+    }
+    if (schema.uniqueItems === true && new Set(value).size !== value.length) {
       return false;
     }
   }
