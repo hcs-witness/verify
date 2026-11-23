@@ -122,6 +122,9 @@ try {
         `status: INVALID (${authErrors.join(", ") || "see errors"})\n`,
       );
     }
+    if (result.reasons !== undefined && result.reasons.length > 0) {
+      process.stdout.write(`reasons: ${result.reasons.join(", ")}\n`);
+    }
     if (expired) {
       process.stdout.write(
         "note: proof is EXPIRED (signature authenticity intact)\n",

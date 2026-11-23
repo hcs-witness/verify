@@ -143,6 +143,19 @@ confirmation.
   rejected with `UNSUPPORTED_VERSION`. `proofV1Schema`/`proofV2Schema`
   are byte-for-byte identical to the schemas emitted proofs were
   validated against (full non-regression).
+- v3 internal coherence is checked after schema validation and before
+  signatures, with `ASSURANCE_INCONSISTENT` plus a precise reason in
+  `VerifyResult.reasons`:
+  - `enrollment_confirmed_but_confirmed_at_null` — `controls` lists
+    `enrollment_confirmed` while `human_factor.confirmed_at` is null;
+  - `enrollment_code_verified_but_flag_false` — `controls` lists
+    `enrollment_code_verified` while
+    `human_factor.enrollment_code_verified` is false;
+  - `confirmed_at_before_enrolled_at` — `human_factor.confirmed_at`
+    predates `human_factor.enrolled_at`.
+- `assurance.level` (N1/N2) is **declared by the issuer**: the rule
+  mapping levels to controls is the issuer's and is not recomputed
+  here; the verifier only checks internal coherence (above).
 - A new verifier release always keeps verifying all previously
   published format versions; dropping a format version requires a
   major release announced ≥ 12 months in advance.
@@ -184,6 +197,10 @@ hcs-witness-verify proofs/<proof_id>.json --keys keys.json
   vérifiables (v3 ajoute l'historique d'enrôlement et l'objet
   `assurance`, tous deux obligatoires) ; le contexte signé
   `gateguard:proof:v1` et la canonicalisation JCS sont immuables.
+- Cohérence v3 : `ASSURANCE_INCONSISTENT` + motif dans
+  `VerifyResult.reasons` (`reasons:` dans la sortie CLI) quand les
+  contrôles déclarés contredisent l'historique d'enrôlement, ou quand
+  `confirmed_at` précède `enrolled_at`.
 - Épinglage : `--expected-keyset-sha256 <hex>` refuse explicitement un
   jeu de clés différent de celui épinglé hors bande (empreinte = ETag
   de `/.well-known/hcs-witness-keys.json`).

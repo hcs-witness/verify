@@ -239,3 +239,34 @@ describe("hcs-witness-verify CLI — V1.3", () => {
     expect(r.out).toContain("DISPLAY_MISMATCH");
   });
 });
+
+describe("hcs-witness-verify CLI — V1.6 assurance coherence", () => {
+  it("exit 1 with the reason on an inconsistent v3 proof", () => {
+    const dev = makeTestSigners();
+    const raw = JSON.parse(
+      execFileSync("cat", ["test/vectors/proof-v3-valid.json"], {
+        encoding: "utf8",
+      }),
+    ) as Record<string, unknown>;
+    delete raw.sig;
+    const signed = signTestProof(
+      {
+        ...raw,
+        human_factor: {
+          ...(raw.human_factor as Record<string, unknown>),
+          confirmed_at: null,
+        },
+      } as unknown as UnsignedProof,
+      dev,
+    );
+    const dir = mkdtempSync(join(tmpdir(), "ggv-v16-"));
+    const proofPath = join(dir, "proof.json");
+    const keysPath = join(dir, "keys.json");
+    writeFileSync(proofPath, JSON.stringify(signed));
+    writeFileSync(keysPath, JSON.stringify(dev.keyset()));
+    const r = run([proofPath, "--keys", keysPath]);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain("ASSURANCE_INCONSISTENT");
+    expect(r.out).toContain("enrollment_confirmed_but_confirmed_at_null");
+  });
+});

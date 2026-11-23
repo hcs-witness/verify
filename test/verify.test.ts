@@ -345,3 +345,85 @@ describe("verifyProof — vecteur v3", () => {
     expect(verifyProof(mutated, v3Keyset).valid).toBe(false);
   });
 });
+
+/* ------------------------------------------------------------------ */
+/* V1.6 : cohérence interne des preuves v3 (ASSURANCE_INCONSISTENT)    */
+/* ------------------------------------------------------------------ */
+
+describe("verifyProof — v3 assurance coherence", () => {
+  const v3Signers = makeTestSigners();
+  const v3Keys = v3Signers.keyset();
+
+  const v3Unsigned = (over: Record<string, unknown>): UnsignedProof => {
+    const base = JSON.parse(rawV3Proof) as Record<string, unknown>;
+    delete base.sig;
+    delete base.anchor;
+    return { ...base, ...over } as unknown as UnsignedProof;
+  };
+
+  it("controls enrollment_confirmed + confirmed_at null → motif", () => {
+    const hf = {
+      ...v3Proof.human_factor,
+      confirmed_at: null,
+    };
+    const signed = signTestProof(v3Unsigned({ human_factor: hf }), v3Signers);
+    const r = verifyProof(signed, v3Keys);
+    expect(r.valid).toBe(false);
+    expect(r.errors).toContain("ASSURANCE_INCONSISTENT");
+    expect(r.reasons).toContain("enrollment_confirmed_but_confirmed_at_null");
+  });
+
+  it("controls enrollment_code_verified + flag false → motif", () => {
+    const hf = {
+      ...v3Proof.human_factor,
+      enrollment_code_verified: false,
+    };
+    const signed = signTestProof(v3Unsigned({ human_factor: hf }), v3Signers);
+    const r = verifyProof(signed, v3Keys);
+    expect(r.valid).toBe(false);
+    expect(r.errors).toContain("ASSURANCE_INCONSISTENT");
+    expect(r.reasons).toContain("enrollment_code_verified_but_flag_false");
+  });
+
+  it("confirmed_at before enrolled_at → motif", () => {
+    const hf = {
+      ...v3Proof.human_factor,
+      enrolled_at: "2026-03-01T00:00:00Z",
+      confirmed_at: "2026-02-01T00:00:00Z",
+    };
+    const signed = signTestProof(v3Unsigned({ human_factor: hf }), v3Signers);
+    const r = verifyProof(signed, v3Keys);
+    expect(r.valid).toBe(false);
+    expect(r.errors).toContain("ASSURANCE_INCONSISTENT");
+    expect(r.reasons).toContain("confirmed_at_before_enrolled_at");
+  });
+
+  it("coherent re-signed v3 proof stays valid (no reasons)", () => {
+    const signed = signTestProof(v3Unsigned({}), v3Signers);
+    const r = verifyProof(signed, v3Keys);
+    expect(r.valid).toBe(true);
+    expect(r.reasons).toBeUndefined();
+  });
+
+  it("mutated v3 vector still reports the inconsistency", () => {
+    const mutated = {
+      ...v3Proof,
+      human_factor: { ...v3Proof.human_factor, confirmed_at: null },
+    };
+    const r = verifyProof(mutated, v3Keyset);
+    expect(r.errors).toContain("ASSURANCE_INCONSISTENT");
+    expect(r.reasons).toContain("enrollment_confirmed_but_confirmed_at_null");
+  });
+
+  it("v1 and v2 proofs are not affected", () => {
+    const r1 = verifyProof(proof, keyset);
+    expect(r1.valid).toBe(true);
+    expect(r1.reasons).toBeUndefined();
+    const r2 = verifyProof(
+      JSON.parse(readFileSync("test/vectors/proof-v2-anchored.json", "utf8")),
+      JSON.parse(readFileSync("test/vectors/keys-local.json", "utf8")),
+    );
+    expect(r2.valid).toBe(true);
+    expect(r2.reasons).toBeUndefined();
+  });
+});

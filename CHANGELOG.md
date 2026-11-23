@@ -42,6 +42,13 @@ controls }` (contrôles énumérés, sans doublon).
   `AssuranceControl`, `HumanFactorV3`.
 - Évaluateur de schéma interne : support de `uniqueItems`.
 
+- Cohérence interne v3, après le schéma et avant les signatures :
+  erreur dédiée `ASSURANCE_INCONSISTENT` + motif précis dans
+  `VerifyResult.reasons` et dans la sortie CLI (`reasons:`) —
+  `enrollment_confirmed` listé alors que `confirmed_at` est null,
+  `enrollment_code_verified` listé alors que le drapeau est false,
+  `confirmed_at` antérieur à `enrolled_at`. v1/v2 non concernées.
+
 ### Notes
 
 - Les émetteurs n'activent `v:3` que derrière un réglage de version
