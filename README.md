@@ -86,6 +86,23 @@ The exported JSON Schemas (`proofSchema`, `unsignedProofSchema`,
 validator (e.g. ajv) — and `isProof` / `isUnsignedProof` / `isKeyset`
 are dependency-free type guards.
 
+## Publishing a release
+
+The real publication process (described, not run from a working copy):
+
+1. The maintainer signs an annotated tag `v<version>` exactly matching
+   `package.json` `version` and pushes it.
+2. `.github/workflows/release.yml` triggers on the tag: `npm ci`,
+   `lint`, `typecheck`, `build`, `test`, then a guard step that fails
+   if the tag does not equal the package version.
+3. `npm publish --provenance` runs with **npm trusted publishing
+   (OIDC)** — the `id-token: write` permission mints a short-lived
+   OIDC token in the `npm-release` environment; no npm access token
+   exists anywhere.
+4. The published tarball carries a **Sigstore provenance** statement
+   linking it to the GitHub Actions run and commit; verifiable with
+   `npm audit signatures`.
+
 ## Verify the package provenance
 
 Every release is published from GitHub Actions via **npm trusted
@@ -117,9 +134,15 @@ confirmation.
 
 ## Proof format and compatibility
 
-- Format versions `v: 1` and `v: 2` (the `presence` block appeared in
-  v2) are supported. The package version is **independent** of the
-  proof-format version.
+- Format versions `v: 1`, `v: 2` and `v: 3` are supported. The
+  `presence` block appeared in v2; v3 adds a mandatory enrollment
+  history under `human_factor` and a mandatory `assurance` object
+  (`{ level: "N1" | "N2", controls }`). The package version is
+  **independent** of the proof-format version.
+- Schema selection is driven by the `v` field; an unknown version is
+  rejected with `UNSUPPORTED_VERSION`. `proofV1Schema`/`proofV2Schema`
+  are byte-for-byte identical to the schemas emitted proofs were
+  validated against (full non-regression).
 - A new verifier release always keeps verifying all previously
   published format versions; dropping a format version requires a
   major release announced ≥ 12 months in advance.
@@ -149,14 +172,23 @@ npm install --global @hcs-witness/verify
 hcs-witness-verify proofs/<proof_id>.json --keys keys.json
 ```
 
-- Codes de sortie : `0` valide, `1` invalide, `2` erreur d'usage.
+- Codes de sortie : `0` valide, `1` invalide ou liaison non conforme,
+  `2` erreur d'usage.
 - Provenance : `npm audit signatures` + badge de provenance sur la page
   npm ; publication par trusted publishing OIDC depuis GitHub Actions,
   sans aucun jeton.
 - Ancrage Bitcoin : `verifyAnchor` vérifie l'inclusion Merkle et lit le
   fichier `.ots` embarqué ; la confirmation du bloc se fait avec les
   outils publics OpenTimestamps (`ots verify anchors/<batch_id>.ots`).
-- Compatibilité : les formats `v:1` et `v:2` restent vérifiables ; le
-  contexte signé `gateguard:proof:v1` et la canonicalisation JCS sont
-  immuables.
+- Compatibilité : les formats `v:1`, `v:2` et `v:3` restent
+  vérifiables (v3 ajoute l'historique d'enrôlement et l'objet
+  `assurance`, tous deux obligatoires) ; le contexte signé
+  `gateguard:proof:v1` et la canonicalisation JCS sont immuables.
+- Épinglage : `--expected-keyset-sha256 <hex>` refuse explicitement un
+  jeu de clés différent de celui épinglé hors bande (empreinte = ETag
+  de `/.well-known/hcs-witness-keys.json`).
+- Liaison : `--action` / `--context` / `--display` vérifient que la
+  preuve porte bien sur l'action, le contexte et le texte affiché —
+  codes de sortie `0` valide, `1` invalide ou liaison non conforme,
+  `2` erreur d'usage.
 - Sécurité : signalement à **contact@ia-solution.fr** (cf. SECURITY.md).
