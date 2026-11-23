@@ -280,3 +280,68 @@ describe("keysetSha256 — keyset pinning", () => {
     expect(r.errors).toContain("KEYSET_PIN_MISMATCH");
   });
 });
+
+/* ------------------------------------------------------------------ */
+/* V1.4 : vecteur fixe v3 — mutation de chaque champ ajouté            */
+/* ------------------------------------------------------------------ */
+
+const rawV3Proof = readFileSync("test/vectors/proof-v3-valid.json", "utf8");
+const rawV3Keys = readFileSync("test/vectors/keys-v3-test.json", "utf8");
+const v3Proof = JSON.parse(rawV3Proof) as {
+  human_factor: Record<string, unknown>;
+  assurance: { level: string; controls: string[] };
+} & Record<string, unknown>;
+const v3Keyset = JSON.parse(rawV3Keys) as Record<string, unknown>;
+
+describe("verifyProof — vecteur v3", () => {
+  it("accepts the fixed signed v3 vector", () => {
+    expect(verifyProof(v3Proof, v3Keyset)).toMatchObject({
+      valid: true,
+      errors: [],
+    });
+  });
+
+  it.each([
+    "enrolled_at",
+    "confirmed_at",
+    "invited_by_ref",
+    "confirmed_by_ref",
+    "self_confirmed",
+    "enrollment_code_verified",
+  ])("fails when human_factor.%s is mutated", (field) => {
+    const mutated = {
+      ...v3Proof,
+      human_factor: {
+        ...v3Proof.human_factor,
+        [field]:
+          field === "enrolled_at" || field === "confirmed_at"
+            ? "2026-01-01T00:00:00Z"
+            : typeof v3Proof.human_factor[field] === "boolean"
+              ? !v3Proof.human_factor[field]
+              : "other-ref",
+      },
+    };
+    expect(verifyProof(mutated, v3Keyset).valid).toBe(false);
+  });
+
+  it("fails when assurance.level is mutated", () => {
+    const mutated = {
+      ...v3Proof,
+      assurance: { ...v3Proof.assurance, level: "N1" },
+    };
+    expect(verifyProof(mutated, v3Keyset).valid).toBe(false);
+  });
+
+  it("fails when assurance.controls is mutated", () => {
+    const mutated = {
+      ...v3Proof,
+      assurance: {
+        ...v3Proof.assurance,
+        controls: v3Proof.assurance.controls.filter(
+          (c) => c !== "presence_measured",
+        ),
+      },
+    };
+    expect(verifyProof(mutated, v3Keyset).valid).toBe(false);
+  });
+});

@@ -8,6 +8,7 @@
     "src/**/*.ts",
     "test/**/*.ts",
     "vitest.config.ts",
-    "eslint.config.mjs"
+    "eslint.config.mjs",
+    "tools/**/*.ts"
   ]
 }

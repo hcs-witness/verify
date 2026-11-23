@@ -5,7 +5,9 @@
  * Vit sous test/ uniquement — jamais dans le paquet publié.
  */
 import {
+  createECDH,
   createHash,
+  createPrivateKey,
   generateKeyPairSync,
   sign as nodeSign,
   type KeyObject,
@@ -170,4 +172,91 @@ export function signTestProof(
     },
   };
   return proof;
+}
+
+/**
+ * Signataires de test DETERMINISTES dérivés d'un seed — utilisés pour
+ * produire des vecteurs fixes régénérables (la graine vit dans les
+ * tests, jamais en production).
+ * ES256 : scalaire privé = sha256(seed ‖ "|es256"), importé en JWK P-256.
+ * ML-DSA-65 : ml_dsa65.keygen(sha256(seed ‖ "|mldsa65")).
+ */
+export function makeSeededTestSigners(seed: Uint8Array): TestSigners {
+  const derive = (label: string): Uint8Array =>
+    createHash("sha256")
+      .update(seed)
+      .update(new TextEncoder().encode(`|${label}`))
+      .digest();
+
+  const esDBytes = derive("es256");
+  // x,y dérivés via ECDH (node:crypto exige x,y,d dans le JWK privé).
+  const ecdh = createECDH("prime256v1");
+  ecdh.setPrivateKey(Buffer.from(esDBytes));
+  const pub = ecdh.getPublicKey(null, "uncompressed");
+  const esJwk = {
+    x: pub.subarray(1, 33).toString("base64url"),
+    y: pub.subarray(33, 65).toString("base64url"),
+  };
+  const esPrivate = createPrivateKey({
+    key: {
+      kty: "EC",
+      crv: "P-256",
+      x: esJwk.x,
+      y: esJwk.y,
+      d: Buffer.from(esDBytes).toString("base64url"),
+    },
+    format: "jwk",
+  });
+  const esKid = es256Kid(esJwk.x, esJwk.y);
+
+  const mlKeys = ml_dsa65.keygen(derive("mldsa65"));
+  const mlKid = mlDsaKid(mlKeys.publicKey);
+
+  const es256: TestEs256Signer = {
+    alg: "ES256",
+    kid: esKid,
+    publicJwk: () => ({
+      kty: "EC",
+      crv: "P-256",
+      x: esJwk.x,
+      y: esJwk.y,
+      alg: "ES256",
+      use: "sig",
+      kid: esKid,
+    }),
+    sign: (message: Uint8Array) =>
+      lowS(
+        new Uint8Array(
+          nodeSign("sha256", Buffer.from(message), {
+            key: esPrivate,
+            dsaEncoding: "ieee-p1363",
+          }),
+        ),
+      ),
+  };
+
+  const mldsa65: TestMlDsaSigner = {
+    alg: "ML-DSA-65",
+    kid: mlKid,
+    publicJwk: () => ({
+      kty: "AKP",
+      alg: "ML-DSA-65",
+      pub: bytesToB64url(mlKeys.publicKey),
+      use: "sig",
+      kid: mlKid,
+    }),
+    sign: (message: Uint8Array) =>
+      ml_dsa65.sign(message, mlKeys.secretKey, { context: ML_DSA_CONTEXT }),
+  };
+
+  return {
+    es256,
+    mldsa65,
+    keyset: (notBefore = "2020-01-01T00:00:00Z") => ({
+      keys: [
+        { ...es256.publicJwk(), status: "active", not_before: notBefore },
+        { ...mldsa65.publicJwk(), status: "active", not_before: notBefore },
+      ],
+    }),
+  };
 }
