@@ -3,6 +3,7 @@ export { bytesToB64url, b64urlToBytes } from "./base64.js";
 export { checkSchema, type JsonSchema } from "./check.js";
 export {
   keysetSchema,
+  keysetSha256,
   isKeyset,
   type Keyset,
   type KeysetKey,

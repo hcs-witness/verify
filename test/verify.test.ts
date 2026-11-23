@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import fc from "fast-check";
 
-import { verifyProof, type UnsignedProof } from "../src/index.js";
+import { keysetSha256, verifyProof, type UnsignedProof } from "../src/index.js";
 import { makeTestSigners, signTestProof } from "./helpers/signer.js";
 
 // Fingerprint of the committed reference vector — regeneration is forbidden.
@@ -245,5 +245,38 @@ describe("verifyProof — presence block (étape 5)", () => {
     expect(proof.v).toBe(1);
     const r = verifyProof(proof, keyset);
     expect(r).toMatchObject({ valid: true, errors: [] });
+  });
+});
+
+describe("keysetSha256 — keyset pinning", () => {
+  it("stable sha256 of the canonical JCS keyset (ETag vector)", () => {
+    // Même calcul que l'ETag de /.well-known/hcs-witness-keys.json :
+    // sha256(JCS(keyset)). Vecteur commun avec gateguard-platform.
+    expect(keysetSha256(keyset)).toBe(
+      "46436272806d3c0e9ef7b99a42fe4ca57301f898f483d24e9220bff4aa807551",
+    );
+  });
+
+  it("changes when any key material changes", () => {
+    const other = JSON.parse(JSON.stringify(keyset)) as {
+      keys: { kid: string }[];
+    };
+    other.keys[0]!.kid = "other-kid";
+    expect(keysetSha256(other)).not.toBe(keysetSha256(keyset));
+  });
+
+  it("accepts the proof when the pin matches", () => {
+    const r = verifyProof(proof, keyset, {
+      expectedKeysetSha256: keysetSha256(keyset),
+    });
+    expect(r.valid).toBe(true);
+  });
+
+  it("rejects with KEYSET_PIN_MISMATCH when the pin differs", () => {
+    const r = verifyProof(proof, keyset, {
+      expectedKeysetSha256: "0".repeat(64),
+    });
+    expect(r.valid).toBe(false);
+    expect(r.errors).toContain("KEYSET_PIN_MISMATCH");
   });
 });

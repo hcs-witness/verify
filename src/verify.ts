@@ -6,6 +6,7 @@ import { b64urlToBytes } from "./base64.js";
 import { canonicalBytes } from "./jcs.js";
 import {
   isKeyset,
+  keysetSha256,
   type Keyset,
   type KeysetKey,
   type Es256KeysetKey,
@@ -25,6 +26,7 @@ export type VerifyErrorCode =
   | "SCHEMA_INVALID"
   | "UNSUPPORTED_VERSION"
   | "KEYSET_INVALID"
+  | "KEYSET_PIN_MISMATCH"
   | "ES256_KID_UNKNOWN"
   | "MLDSA_KID_UNKNOWN"
   | "ES256_SIG_INVALID"
@@ -42,6 +44,7 @@ export interface VerifyResult {
 
 export interface VerifyOptions {
   readonly now?: Date;
+  readonly expectedKeysetSha256?: string;
 }
 
 function parseTime(value: string): number {
@@ -101,6 +104,13 @@ export function verifyProof(
     return { valid: false, errors, proof_id: p.proof_id };
   }
   const ks: Keyset = keyset;
+
+  if (
+    opts?.expectedKeysetSha256 !== undefined &&
+    opts.expectedKeysetSha256 !== keysetSha256(ks)
+  ) {
+    errors.push("KEYSET_PIN_MISMATCH");
+  }
 
   const esKey = ks.keys.find(
     (k): k is Es256KeysetKey => k.alg === "ES256" && k.kid === p.sig.es256.kid,
